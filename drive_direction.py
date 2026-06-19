@@ -18,7 +18,6 @@ python drive_direction.py --input test.mp4
 python drive_direction.py --input test.mp4 --car-width 0.20
 """
 import argparse
-import math
 from pathlib import Path
 
 import cv2
@@ -185,10 +184,7 @@ def navigation_status(obstacles: list, steer_norm: float) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def draw_frame(rgb: np.ndarray, seg_map: np.ndarray,
-               cor_left: np.ndarray, cor_right: np.ndarray,
-               centerline: np.ndarray,
-               obstacles: list, obs_labels: np.ndarray,
-               status: str) -> np.ndarray:
+               centerline: np.ndarray) -> np.ndarray:
 
     H, W  = rgb.shape[:2]
     out   = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
@@ -199,33 +195,12 @@ def draw_frame(rgb: np.ndarray, seg_map: np.ndarray,
     layer = out.copy();  layer[road_mask] = C_ROAD
     cv2.addWeighted(layer, ROAD_ALPHA, out, 1.0 - ROAD_ALPHA, 0, out)
 
-    # ── 2. obstacle segments (orange) — only detected blobs, near-field rows ──
-    if obstacles:
-        detected_ids = {o["label_id"] for o in obstacles}
-        obs_pixel_mask = np.isin(obs_labels, list(detected_ids))
-        # Only show in warn zone rows (near field)
-        warn_top = int(H * (1.0 - WARN_ZONE_FRAC))
-        row_idx  = np.arange(H)[:, None]
-        obs_pixel_mask &= (row_idx >= warn_top)
-
-        if obs_pixel_mask.any():
-            layer2 = out.copy();  layer2[obs_pixel_mask] = C_OBS
-            cv2.addWeighted(layer2, OBS_ALPHA, out, 1.0 - OBS_ALPHA, 0, out)
-
-    # ── 3. short corridor band (bottom GUIDE_FRAC only) ───────────────────────
-    valid_rows = np.where(cor_left >= 0)[0]
-    near_rows  = valid_rows[valid_rows >= guide_top]
-    if near_rows.size >= 2:
-        l_pts = np.column_stack([cor_left[near_rows],  near_rows]).astype(np.int32)
-        r_pts = np.column_stack([cor_right[near_rows], near_rows]).astype(np.int32)[::-1]
-        poly  = np.vstack([l_pts, r_pts]).reshape(-1, 1, 2)
-        layer3 = out.copy();  cv2.fillPoly(layer3, [poly], C_CORRIDOR)
-        cv2.addWeighted(layer3, CORRIDOR_ALPHA, out, 1.0 - CORRIDOR_ALPHA, 0, out)
-
-    # ── 4. short centerline (dotted white, bottom portion) ────────────────────
-    cl_valid = np.where(centerline >= 0)[0]
-    for r in cl_valid[cl_valid >= guide_top][::5]:
-        cv2.circle(out, (int(centerline[r]), r), 1, C_CENTER, -1)
+    # ── 2. single blue target dot at nearest centerline point ─────────────────
+    cl_valid  = np.where(centerline >= 0)[0]
+    near_rows = cl_valid[cl_valid >= guide_top]
+    if near_rows.size > 0:
+        far_r = int(near_rows[0])
+        cv2.circle(out, (int(centerline[far_r]), far_r), 16, (255, 80, 0), -1)
 
     return cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
 
@@ -245,12 +220,7 @@ def process_frame(rgb: np.ndarray, processor, model, device,
     centerline, cor_left, cor_right = compute_corridor(free_mask, car_width_px)
     centerline = smooth_centerline(centerline, W)
 
-    steer_norm            = compute_steering(cor_left, cor_right, car_width_px, H, W)
-    obstacles, obs_labels = detect_obstacles(seg_map, cor_left, cor_right, car_width_px)
-    status                = navigation_status(obstacles, steer_norm)
-
-    return draw_frame(rgb, seg_map, cor_left, cor_right, centerline,
-                      obstacles, obs_labels, status)
+    return draw_frame(rgb, seg_map, centerline)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

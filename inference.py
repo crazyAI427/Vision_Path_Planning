@@ -60,6 +60,17 @@ def infer_mask(rgb_np: np.ndarray, processor, model, device) -> np.ndarray:
     return mask.astype(bool)
 
 
+def infer_seg(rgb_np: np.ndarray, processor, model, device) -> np.ndarray:
+    """Return (H, W) full Cityscapes label map (trainIds 0–18)."""
+    image = Image.fromarray(rgb_np)
+    inputs = processor(images=image, return_tensors="pt").to(device)
+    with torch.no_grad():
+        logits = model(**inputs).logits
+    logits = F.interpolate(logits, size=(image.height, image.width),
+                           mode="bilinear", align_corners=False)
+    return logits.argmax(dim=1)[0].cpu().numpy().astype(np.uint8)
+
+
 def apply_overlay(rgb_np: np.ndarray, mask: np.ndarray) -> np.ndarray:
     out = rgb_np.copy()
     layer = out.copy()

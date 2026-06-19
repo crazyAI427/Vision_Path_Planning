@@ -16,5 +16,4 @@ __pycache__/
 
 CLAUDE.md
 
-test.mp4
-test_out.mp4
+*.mp4

@@ -1,0 +1,11 @@
+# CUDA 12.4 build of PyTorch (works on driver 12.8 / RTX A6000, sm_86).
+# The +cu124 local tag makes pip prefer these over the PyPI CPU/default wheels.
+# torch==2.6.0 --extra-index-url https://download.pytorch.org/whl/cu124
+transformers>=4.40
+# transformers 5.x routes the SegFormer image processor through torchvision:
+torchvision==0.21.0
+pillow
+numpy
+matplotlib
+# drive_direction.py: connected components + overlay drawing
+opencv-python-headless

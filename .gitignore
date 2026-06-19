@@ -1,7 +1,8 @@
 # Virtual environment
 venv/
 
-
+# Virtual environment
+model/
 
 # Python
 __pycache__/
@@ -12,3 +13,8 @@ __pycache__/
 # OS / editor
 .DS_Store
 .vscode/
+
+CLAUDE.md
+
+test.mp4
+test_out.mp4
